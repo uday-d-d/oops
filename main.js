@@ -3,8 +3,13 @@
 /* ═══════════════════════════
    CONFIG — Edit this section
 ═══════════════════════════ */
-// Paste your Google Apps Script Web App URL here.
-const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbxooFYwLd8nSRxZusJt3bN9WDlUq2pHmgGNrsr5TXnJ5ZIM0d75G6-ystyQWHVKXEFK/exec';
+// Supabase Configuration
+// Replace these with your actual Supabase Project URL and Anon Key
+const SUPABASE_URL = 'https://ilscyqpnpxzlytcxifad.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlsc2N5cXBucHh6bHl0Y3hpZmFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMzI5NzEsImV4cCI6MjA5MjcwODk3MX0.6_43SCFxwxBqZQIPOG9JQ9QEXkeu6PtvF5Lr5u-F2RY';
+
+// Initialize Supabase Client
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /* ═══════════════════════════
    NAV
@@ -252,6 +257,36 @@ const fbReset = document.getElementById('fbReset');
 const formError = document.getElementById('formError');
 const fbFormWrap = document.getElementById('fbFormWrap');
 
+// Fetch and display feedback count
+async function updateFeedbackCount() {
+  try {
+    if (SUPABASE_URL === 'YOUR_SUPABASE_URL') return; // Skip if not configured
+    
+    const { count, error } = await supabase
+      .from('feedback')
+      .select('*', { count: 'exact', head: true });
+      
+    if (!error && count !== null) {
+      const descElement = document.querySelector('#feedback .sec-desc');
+      if (descElement) {
+        // Only append if not already appended
+        if (!descElement.innerHTML.includes('visitors left feedback')) {
+          descElement.innerHTML += `<br><span style="display:inline-block; margin-top:8px; font-weight:600; color:var(--text-main);">🔥 ${count} visitors left feedback</span>`;
+        } else {
+          // Update the text if it exists
+          descElement.innerHTML = descElement.innerHTML.replace(/🔥 \d+ visitors left feedback/, `🔥 ${count} visitors left feedback`);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error fetching feedback count:', err);
+  }
+}
+// Call it on page load
+if (document.getElementById('feedback')) {
+  updateFeedbackCount();
+}
+
 if (fbForm) {
   fbForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -260,8 +295,13 @@ if (fbForm) {
     const msg = fbMsg.value.trim();
     const name = document.getElementById('fbName').value.trim() || 'Anonymous';
     const suggestion = document.getElementById('fbSuggestion').value.trim();
-    const vibe = vibeInput ? vibeInput.value : '';
-    const rating = ratingInput ? ratingInput.value : '';
+    // Vibe is strictly a frontend interaction element now, not stored in Supabase
+    
+    // Rating mapping (fallback to null if no rating selected)
+    let finalRating = null;
+    if (selectedRating > 0) {
+      finalRating = selectedRating;
+    }
 
     if (!msg) {
       formError.textContent = 'Please write something before sending!';
@@ -271,31 +311,46 @@ if (fbForm) {
       return;
     }
 
+    // Basic validation / spam prevention
+    if (msg.length < 3) {
+      formError.textContent = 'Message is too short to be meaningful!';
+      return;
+    }
+
     fbSubmit.disabled = true;
     fbSubmit.textContent = 'Sending...';
 
-    // Send silently in the background to Google Sheets via Apps Script
+    // Submit to Supabase
     try {
-      const formData = new FormData();
-      formData.append('Name', name);
-      formData.append('Rating', rating);
-      formData.append('Vibe', vibe);
-      formData.append('Message', msg);
-      formData.append('Suggestion', suggestion || 'None');
+      if (SUPABASE_URL === 'YOUR_SUPABASE_URL') {
+        throw new Error('Please set your Supabase URL and Anon Key in main.js');
+      }
 
-      // 'no-cors' mode allows us to submit data without CORS errors
-      if (GOOGLE_SHEET_URL !== 'YOUR_GOOGLE_SCRIPT_URL_HERE') {
-        await fetch(GOOGLE_SHEET_URL, {
-          method: 'POST',
-          body: formData,
-          mode: 'no-cors'
-        });
+      const { data, error } = await supabase
+        .from('feedback')
+        .insert([
+          { 
+            name: name,
+            rating: finalRating,
+            message: msg,
+            suggestion: suggestion || null
+          }
+        ]);
+
+      if (error) {
+        console.error("Supabase Insert Error:", error);
+        formError.textContent = `Database error: ${error.message}`;
+        fbSubmit.disabled = false;
+        fbSubmit.textContent = 'Send it →';
+        return;
       }
 
       // Smoothly transition to the success tick state
       showSuccess();
+      updateFeedbackCount(); // Refresh count after successful submission
     } catch (error) {
-      formError.textContent = 'Oops, something went wrong. Try again?';
+      console.error(error);
+      formError.textContent = error.message || 'Oops, something went wrong. Try again?';
       fbSubmit.disabled = false;
       fbSubmit.textContent = 'Send it →';
     }
