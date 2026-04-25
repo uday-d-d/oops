@@ -9,7 +9,7 @@ const SUPABASE_URL = 'https://ilscyqpnpxzlytcxifad.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlsc2N5cXBucHh6bHl0Y3hpZmFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMzI5NzEsImV4cCI6MjA5MjcwODk3MX0.6_43SCFxwxBqZQIPOG9JQ9QEXkeu6PtvF5Lr5u-F2RY';
 
 // Initialize Supabase Client
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /* ═══════════════════════════
    NAV
@@ -262,7 +262,7 @@ async function updateFeedbackCount() {
   try {
     if (SUPABASE_URL === 'YOUR_SUPABASE_URL') return; // Skip if not configured
     
-    const { count, error } = await supabase
+    const { count, error } = await supabaseClient
       .from('feedback')
       .select('*', { count: 'exact', head: true });
       
@@ -326,7 +326,7 @@ if (fbForm) {
         throw new Error('Please set your Supabase URL and Anon Key in main.js');
       }
 
-      const { data, error } = await supabase
+      const { data, error } = await supabaseClient
         .from('feedback')
         .insert([
           { 
